@@ -77,16 +77,8 @@ def multi_scale_template_matching(image_path, region):
     best_match = None
     max_val = 0
 
-    # 保存成功的尺度
-    successful_scale = None 
-
     # 在多个尺度上运行模板匹配
     scales = np.linspace(0.7, 2, 50)[::-1]
-    if successful_scale is not None:
-        # 如果之前有成功的尺度，那么只在这个尺度的附近进行匹配
-        min_scale = max(0.7, successful_scale * 0.9)
-        max_scale = min(2, successful_scale * 1.1)
-        scales = np.linspace(min_scale, max_scale, 50)[::-1]
         
 
     for scale in scales:
@@ -110,18 +102,17 @@ def multi_scale_template_matching(image_path, region):
     # 检查是否找到足够好的匹配结果
     if best_match and max_val > 0.75:
         max_loc, scale = best_match 
-        successful_scale = scale  # 保存成功的尺度
         current_time = time.time()
         elapsed_time = current_time - start_time  # 已运行时间
         formatted_time = format_time(elapsed_time)
         print(f"已运行 {formatted_time}。匹配成功，尺度: {scale:.6f}, 位置: {max_loc}, 相似度: {max_val:.6f}")
-        return True
+        return True, max_val
     else:
         current_time = time.time()
         elapsed_time = current_time - start_time  # 已运行时间
         formatted_time = format_time(elapsed_time)
         print(f"已运行 {formatted_time}。未找到匹配图像。最高相似度: {max_val:.6f}")
-        return False
+        return False, max_val
 #-----------------------------------------------------------------
 
 
@@ -130,22 +121,33 @@ def multi_scale_template_matching(image_path, region):
 # 检查用户是否选择了区域
 if selected_region:
     print("选定区域:", selected_region)
+    print("等待3秒后开始自动钓鱼...请确保游戏画面准备就绪")
+    time.sleep(3)  # 等待用户切换到游戏界面
+    
+    # 自动抛竿
+    print("正在自动抛竿...")
+    pyautogui.click(button='right')
+    time.sleep(2)  # 等待鱼竿抛出并开始钓鱼
+    
     match_count = 0 # 匹配成功次数的计数器
     match_times = [] # 用于存储匹配时间的列表
     last_match_time = time.time() # 上一次匹配成功的时间
     no_match_start_time = time.time() # 连续未匹配成功的起始时间
+    last_action_time = time.time()  # 上次操作时间，防止过于频繁的操作
 
     while True:
         # 调用模板匹配函数
-        if multi_scale_template_matching(text_image_path, selected_region):
+        matched, confidence = multi_scale_template_matching(text_image_path, selected_region)
+        current_time = time.time()
+        
+        if matched:
             match_count += 1
-            current_time = time.time()
             match_interval = current_time - last_match_time
             match_times.append(match_interval)
             last_match_time = current_time
             no_match_start_time = current_time  # 重置未匹配成功的起始时间
 
-            # 使用 PrettyTable 创建表格5
+            # 使用 PrettyTable 创建表格
             table = PrettyTable()
             table.header = False  # 不显示表头
             table.add_row(["匹配成功次数", match_count])
@@ -157,27 +159,27 @@ if selected_region:
 
             print(table)
             
-            # 计算匹配位置并点击
+            # 收竿并重新抛竿
             pyautogui.click(button='right')
-            time.sleep(1)  # 等待１秒进行第二次右键点击
-            pyautogui.click(button='right')
-            time.sleep(3)  # 等待３秒进行后续图像识别
+            time.sleep(0.5)  # 短暂等待
+            pyautogui.click(button='right')  # 重新抛竿
+            time.sleep(2)  # 等待鱼竿抛出
+            
+            last_action_time = current_time
 
         else:
             # 检查连续未匹配成功的时间
-            current_time = time.time()
-
             # 如果连续未匹配成功的时间超过40秒，执行一次Tab点击，再点击一次Enter，点击一次右键
             if current_time - no_match_start_time >= 40:
                 print("已经40秒没有匹配成功了，尝试回到游戏并点击右键")
                 pyautogui.press('tab')
-                #time.sleep(1)  # 等待１秒点击enter
                 pyautogui.press('enter')
-                #time.sleep(1)  # 等待１秒点击右键
                 pyautogui.click(button='right')
+                time.sleep(2)  # 等待操作完成
                 no_match_start_time = current_time  # 重置未匹配成功的起始时间
-                
-        time.sleep(0.4)  # 循环检查的间隔时间
+
+        # 优化循环间隔，提高检测频率以减少遗漏
+        time.sleep(0.1)  # 减少等待时间以提高检测频率
 else:
     print("未选择区域")
 #-----------------------------------------------------------------
